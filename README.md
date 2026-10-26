@@ -1,16 +1,18 @@
 # ATS job board APIs: endpoints, fields and limits, measured
 
-Nine applicant tracking systems publish a company's open roles where anyone can read them: Ashby, Breezy HR, Greenhouse, JazzHR, Lever, Recruitee, Rippling, Workable and Workday. For each one this file gives the public endpoint with a curl that works, what a posting holds, how paging works, the limits we measured against the live endpoint, and where it stops. Every reading was taken between 22 September and 14 October 2026 on public, logged-out endpoints, and each section links to the full page on [adderleydata.com](https://adderleydata.com/guides/), which has the tables and the runs behind the numbers.
+Eleven applicant tracking systems publish a company's open roles where anyone can read them: Ashby, BambooHR, Breezy HR, Greenhouse, JazzHR, Lever, Personio, Recruitee, Rippling, Workable and Workday. For each one this file gives the public endpoint with a curl that works, what a posting holds, how paging works, the limits we measured against the live endpoint, and where it stops. Every reading was taken between 22 September and 27 October 2026 on public, logged-out endpoints. Ten of the sections link to the full page on [adderleydata.com](https://adderleydata.com/guides/), which has the tables and the runs behind the numbers, and five systems have a [runnable example](#runnable-examples) in `examples/`.
 
 ## Quick reference
 
 | ATS | Public endpoint | Key to read | Paging | Posting text | Pay |
 | --- | --- | --- | --- | --- | --- |
 | [Ashby](#ashby) | `GET api.ashbyhq.com/posting-api/job-board/{name}` | None | None: one response | In the list | Structured, with `includeCompensation=true` |
+| [BambooHR](#bamboohr) | `GET {company}.bamboohr.com/careers/list` (undocumented) | None for the list; a key for the documented API | None: one response | Job record only | `compensation`, the company's own words, in the job record |
 | [Breezy HR](#breezy-hr) | `GET {company}.breezy.hr/json` (undocumented) | None for the feed; a token for the v3 API | None: one response | Posting page only | A sentence, such as "$60,000 – $70,000 / year" |
 | [Greenhouse](#greenhouse) | `GET boards-api.greenhouse.io/v1/boards/{token}/jobs` | None | None: one response | With `content=true` | In the text; structured per job with `pay_transparency=true` |
 | [JazzHR](#jazzhr) | HTML page `{company}.applytojob.com/apply` | None for the page; a key for the API | None: one page | Posting page only | On some posting pages' structured data |
 | [Lever](#lever) | `GET api.lever.co/v0/postings/{site}` (EU: `api.eu.lever.co`) | None | Optional `skip` and `limit` | In the list | `salaryRange`, set on 26% of 2,376 postings read |
+| [Personio](#personio) | `GET {company}.jobs.personio.de/xml?language=en` (XML) | None | None: one response | In the feed, in the language asked for | `salaryInformation`, rare |
 | [Recruitee](#recruitee) | `GET {company}.recruitee.com/api/offers/` | None until 10 February 2027 | None: one response | In the list | Structured `salary` |
 | [Rippling](#rippling) | `GET api.rippling.com/platform/api/ats/v2/board/{slug}/jobs` | None | `pageSize` up to 1,000 | Job record only | `payRangeDetails`, in the job record |
 | [Workable](#workable) | `GET www.workable.com/api/accounts/{account}?details=true` | None for this endpoint | None: one response | With `details=true` | No field; in the text |
@@ -30,6 +32,22 @@ curl "https://api.ashbyhq.com/posting-api/job-board/ashby?includeCompensation=tr
 
 Full page: [Ashby job board API, measured](https://adderleydata.com/guides/ashby-job-board-api/) · Actor: [Ashby Jobs Scraper](https://apify.com/adderleydata/ashby-jobs-scraper)
 
+## BambooHR
+
+```
+curl -H "Accept: application/json" "https://demo.bamboohr.com/careers/list"
+curl -H "Accept: application/json" "https://demo.bamboohr.com/careers/1/detail"
+```
+
+- **Not a documented API.** It is the JSON BambooHR's own careers pages load. BambooHR's [documented API](https://documentation.bamboohr.com/docs/getting-started) authenticates every request, with an API key a user creates inside that company's account or through OAuth, and lists no public job endpoint (checked 27 October 2026). `demo` is BambooHR's own demo site, with one opening.
+- **The company name** is the subdomain in `{company}.bamboohr.com/careers`. A name with no account behind it answers HTTP 302 to `https://www.bamboohr.com` on every path, and an expired account answers 302 to its own `/settings/account/expired.php`, so read the redirect rather than follow it. An unknown job id answers HTTP 404 with `{"type":"not_found","title":"Resource not found.",…}`.
+- **The list** answers `{"meta": {"totalCount"}, "result": […]}`, every opening with the same 10 keys: `id`, `jobOpeningName` (the title), `departmentId`, `departmentLabel`, `employmentStatusLabel` (the company's own label, such as "Full Time"), `employmentType`, `location` (`city`, `state`), `atsLocation` (`country`, `state`, `province`, `city`), `isRemote` and `locationType` (`"0"` on-site, `"1"` remote, `"2"` hybrid). No date, no pay, no text.
+- **The job record**, `/careers/{id}/detail`, answers `{"meta", "result": {"jobOpening", "formFields"}}`. `jobOpening` has 17 keys, among them `datePosted` (a date, `YYYY-MM-DD`), `compensation` (the company's own words, such as "$70,000 - $100,000 per year" or "$40 per hour"), `description` as HTML, `minimumExperience` and `jobOpeningShareUrl`. No field records an edit or a closing date.
+- **Measured** directly, not through Apify, on two public boards on 27 October 2026: 138 and 13 openings, 153 requests (each list plus every record), all at the first attempt, in 2 minutes 32 seconds one at a time. `isRemote` was null on all 151 and `locationType` set on all; `atsLocation` named a country on 7 of the smaller board's 13 and on none of the larger board's 138. Pay on 117 of the 151, all as written: 114 with a dollar sign and no currency code, 2 naming the code ("150,000 NZD", "$110,000 – $140,000 CAD per year") and one bare "20".
+- **Where it stops:** the list is cheap and thin; the date, the pay and the text cost one request per opening, the pay is free text whose currency is often only a sign, and nothing says which openings changed.
+
+Actor: [BambooHR Jobs Scraper](https://apify.com/adderleydata/bamboohr-jobs-scraper) · Example: [`examples/bamboohr.mjs`](examples/bamboohr.mjs)
+
 ## Breezy HR
 
 ```
@@ -43,7 +61,7 @@ curl "https://{company}.breezy.hr/json"
 - **Measured** on a public board of 69 positions on 12 October 2026: the feed in one request; the feed plus every posting page, 70 requests in 24 seconds. Posting pages refused 8 of 78 attempts with HTTP 403 from datacentre addresses; the feed answered at the first attempt.
 - **Where it stops:** the feed is undocumented, so it can change without notice; the text and the currency code cost one request per position; nothing records an edit.
 
-Full page: [Breezy HR job board API, measured](https://adderleydata.com/guides/breezy-hr-job-board-api/) · Actor: [Breezy HR Jobs Scraper](https://apify.com/adderleydata/breezy-jobs-scraper)
+Full page: [Breezy HR job board API, measured](https://adderleydata.com/guides/breezy-hr-job-board-api/) · Actor: [Breezy HR Jobs Scraper](https://apify.com/adderleydata/breezy-jobs-scraper) · Example: [`examples/breezy-hr.mjs`](examples/breezy-hr.mjs)
 
 ## Greenhouse
 
@@ -88,6 +106,22 @@ curl "https://api.lever.co/v0/postings/employ?mode=json"
 
 Full page: [Lever job board API, measured](https://adderleydata.com/guides/lever-job-board-api/) · Actor: [Lever Jobs Scraper](https://apify.com/adderleydata/lever-jobs-scraper)
 
+## Personio
+
+```
+curl "https://personio.jobs.personio.de/xml?language=en"
+```
+
+- **`personio` is Personio's own job page.** Personio documents the feed for companies that list their jobs on their own website ("Integration via code" on developer.personio.de), and its help centre says the feed needs no credentials and changes as soon as a job is edited in Personio (both read 26 October 2026). The same board answers on `{company}.jobs.personio.com`; Personio's own board returned the same bytes on both hosts.
+- **The company name** is the part before `.jobs.personio.de` in any of its job links; `{company}.personio.de`, without `jobs`, is the company's own sign-in. A name with no board answered HTTP 404 with an HTML "Page Not Found" page on both hosts on 26 October 2026; on 25 September the same request was redirected to personio.com, so test for both.
+- **Send the language.** `language` picks the text. Without it, both boards read answered as they did with `language=de`; a code Personio does not have, `xx`, answered 200 with the same positions and no text. A position with no text in the language asked for keeps its other fields and has an empty `<jobDescriptions>`.
+- **A position holds**, in the feed's order: `id`, `subcompany` (the legal entity), `office`, `additionalOffices`, `department`, `recruitingCategory`, `name` (the title), `jobDescriptions` (one `<jobDescription>` per section: `<name>` the heading, `<value>` its HTML in CDATA), `employmentType`, `seniority`, `schedule`, `yearsOfExperience`, `keywords`, `occupation`, `occupationCategory` and `createdAt` (ISO 8601 with an offset), with `salaryInformation` where the company has set it. A position's page is `/job/{id}` on the board's host.
+- **No paging:** one request returns every position with its text.
+- **Measured** on Personio's own job page (1 position) and a public board of 27 on 26 October 2026: 2 requests, both at the first attempt, in 2 seconds; the 27-position feed was 113,249 bytes in English. Text in English on 19 of the 27, pay on none of them.
+- **Where it stops:** nothing records an edit or a closing date, remote work shows only in the free-text office label, `salaryInformation` is rare, and some companies add a section to the text naming a recruiter, with an email address and a phone number.
+
+Full page: [Personio job board API, measured](https://adderleydata.com/guides/personio-job-board-api/) · Actor: [Personio Jobs Scraper](https://apify.com/adderleydata/personio-jobs-scraper) · Example: [`examples/personio.mjs`](examples/personio.mjs)
+
 ## Recruitee
 
 ```
@@ -100,7 +134,7 @@ curl "https://jobs.recruitee.com/api/offers/"
 - **Watch for** trial accounts under big brands' names that hold only Recruitee's template offer, "Senior Marketer (Sample)", tagged `Sample`; and custom careers domains, which do not reliably lead back to a company's Recruitee name.
 - **Measured** on Tellent's board: 13 offers on 12 October 2026, one request, 3 seconds; a yearly pay range in euros on all 13.
 
-Full page: [Recruitee job board API, measured](https://adderleydata.com/guides/recruitee-job-board-api/) · Actor: [Recruitee Jobs Scraper](https://apify.com/adderleydata/recruitee-jobs-scraper)
+Full page: [Recruitee job board API, measured](https://adderleydata.com/guides/recruitee-job-board-api/) · Actor: [Recruitee Jobs Scraper](https://apify.com/adderleydata/recruitee-jobs-scraper) · Example: [`examples/recruitee.mjs`](examples/recruitee.mjs)
 
 ## Rippling
 
@@ -115,7 +149,7 @@ curl "https://api.rippling.com/platform/api/ats/v1/board/rippling/jobs/{id}"
 - **Measured** on Rippling's own board: 336 postings on 6 October 2026. A full read took 337 requests, the list plus one record per posting, all at the first attempt, in 3 minutes 17 seconds at 90 requests a minute. Pay on 164; 59 of them give two or three ranges, by location tier or office.
 - **Where it stops:** the date and the pay live only in the record, so every full read costs one request per posting, and nothing says which postings changed.
 
-Full page: [Rippling job board API, measured](https://adderleydata.com/guides/rippling-job-board-api/) · Actor: [Rippling Jobs Scraper](https://apify.com/adderleydata/rippling-jobs-scraper)
+Full page: [Rippling job board API, measured](https://adderleydata.com/guides/rippling-job-board-api/) · Actor: [Rippling Jobs Scraper](https://apify.com/adderleydata/rippling-jobs-scraper) · Example: [`examples/rippling.mjs`](examples/rippling.mjs)
 
 ## Workable
 
@@ -146,16 +180,28 @@ curl -X POST "https://acme.wd5.myworkdayjobs.com/wday/cxs/acme/External/jobs" \
 
 Full page: [Workday job board API, measured](https://adderleydata.com/guides/workday-job-board-api/) · Actor: [Workday Jobs Scraper](https://apify.com/adderleydata/workday-jobs-scraper)
 
+## Runnable examples
+
+Five of the systems have a script in [`examples/`](examples/) that reads one board and prints one JSON object per posting, with a summary line on stderr: Node 22 or later, nothing to install, no key. Each answers a missing board with a one-line message and exit code 1, and makes its per-posting requests one at a time, at most about 85 a minute. Each was run as printed below on 27 October 2026.
+
+| Script | Run | Requests | Read on 27 October 2026 |
+| --- | --- | --- | --- |
+| [`bamboohr.mjs`](examples/bamboohr.mjs) | `node examples/bamboohr.mjs demo --details 1` | 1, plus 1 a job with `--details` | BambooHR's demo site: 1 opening with its date and pay, 2 requests |
+| [`breezy-hr.mjs`](examples/breezy-hr.mjs) | `node examples/breezy-hr.mjs breezy` | 1 | Breezy HR's own portal: 3 placeholder positions with pay sentences, 1 request |
+| [`personio.mjs`](examples/personio.mjs) | `node examples/personio.mjs personio --text` | 1 | Personio's own job page: 1 position with 4 text sections, 1 request |
+| [`recruitee.mjs`](examples/recruitee.mjs) | `node examples/recruitee.mjs jobs` | 1 | Tellent's careers site: 12 offers, each with a pay range, 1 request |
+| [`rippling.mjs`](examples/rippling.mjs) | `node examples/rippling.mjs rippling --records 3` | 1 a page of 1,000, plus 1 a posting with `--records` | Rippling's own board: 379 postings, 3 with their records, 4 requests |
+
 ## Watching boards over time
 
-Each endpoint answers what one company is advertising now. None of the nine says which postings changed since the last read, and Lever, Rippling, Workable and Breezy HR record no edit time at all, so seeing a change means keeping each read and comparing it with the next. Country, city, pay and work arrangement often sit in free text, and every company is its own identifier on its own system. The Actors linked above do that work on Apify, one per system, each returning one row per posting in the same schema and, in incremental mode, returning and charging for only postings that are new, changed, back or gone. The [Career Site Jobs Scraper](https://apify.com/adderleydata/career-site-jobs-scraper) takes company names or careers links across fifteen systems and returns one table.
+Each endpoint answers what one company is advertising now. None of the eleven says which postings changed since the last read, and Lever, Rippling, Workable, Breezy HR, Personio and BambooHR record no edit time at all, so seeing a change means keeping each read and comparing it with the next. Country, city, pay and work arrangement often sit in free text, and every company is its own identifier on its own system. The Actors linked above do that work on Apify, one per system, each returning one row per posting in the same schema and, in incremental mode, returning and charging for only postings that are new, changed, back or gone. The [Career Site Jobs Scraper](https://apify.com/adderleydata/career-site-jobs-scraper) takes company names or careers links across fifteen systems and returns one table.
 
 ## How these were measured
 
 Logged out, on public endpoints only. The measured runs went through Apify's datacentre addresses at the Actors' default pace, 4 requests at a time and 90 a minute, unless a section says otherwise. Parameters and fields are as each vendor documented them on the date given and as the live endpoint answered; where the two differ, the section says so. Every reading is dated, and the pages on adderleydata.com are the ones kept current.
 
-**No personal data.** Job postings describe roles, and nothing here is read for people. Where a response can carry someone's details (Greenhouse's custom `metadata`, Recruitee's `mailbox_email`, the application forms on Recruitee offers and JazzHR posting pages), the Actors linked here never read it, and they redact email addresses and phone numbers inside posting text by default.
+**No personal data.** Job postings describe roles, and nothing here is read for people. Where a response can carry someone's details (Greenhouse's custom `metadata`, Recruitee's `mailbox_email`, a Personio text section that names a recruiter, the application forms on Recruitee offers and JazzHR posting pages), the Actors linked here never read it, and they redact email addresses and phone numbers inside posting text by default.
 
-**Not affiliated** with, endorsed by or sponsored by any company named here. Ashby, Breezy HR, Greenhouse, JazzHR, Lever, Recruitee, Rippling, Workable and Workday are trade marks of their owners, used only to say which API each section describes.
+**Not affiliated** with, endorsed by or sponsored by any company named here. Ashby, BambooHR, Breezy HR, Greenhouse, JazzHR, Lever, Personio, Recruitee, Rippling, Workable and Workday are trade marks of their owners, used only to say which API each section describes.
 
-Written by [Adderley Data](https://adderleydata.com), Melbourne. Text licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): reuse it with a link back.
+Written by [Adderley Data](https://adderleydata.com), Melbourne. The text and the scripts in `examples/` are licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): reuse them with a link back.
