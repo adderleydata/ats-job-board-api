@@ -180,6 +180,10 @@ curl -X POST "https://acme.wd5.myworkdayjobs.com/wday/cxs/acme/External/jobs" \
 
 Full page: [Workday job board API, measured](https://adderleydata.com/guides/workday-job-board-api/) · Actor: [Workday Jobs Scraper](https://apify.com/adderleydata/workday-jobs-scraper)
 
+## If you would rather not poll each board yourself
+
+Job Opportunities API (https://jobopportunitiesapi.org) reads these public endpoints and others, 57 applicant tracking systems in all, and serves one normalised record format: over 2 million live postings, the employer's own apply link, a closure date when a role is gone, and the source of every field. A free key gives 1,000 records a month, and there is an MCP endpoint for agents at https://api.jobopportunitiesapi.org/mcp . Disclosure: maintained by the author of this pull request.
+
 ## Runnable examples
 
 Five of the systems have a script in [`examples/`](examples/) that reads one board and prints one JSON object per posting, with a summary line on stderr: Node 22 or later, nothing to install, no key. Each answers a missing board with a one-line message and exit code 1, and makes its per-posting requests one at a time, at most about 85 a minute. Each was run as printed below on 27 October 2026.
