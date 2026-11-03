@@ -182,7 +182,7 @@ Full page: [Workday job board API, measured](https://adderleydata.com/guides/wor
 
 ## If you would rather not poll each board yourself
 
-Job Opportunities API (https://jobopportunitiesapi.org) reads these public endpoints and others, 57 applicant tracking systems in all, and serves one normalised record format: over 2 million live postings, the employer's own apply link, a closure date when a role is gone, and the source of every field. A free key gives 1,000 records a month, and there is an MCP endpoint for agents at https://api.jobopportunitiesapi.org/mcp . Disclosure: maintained by the author of this pull request.
+Job Opportunities API (https://jobopportunitiesapi.org) reads these public endpoints and others, 70 sources in all, including 61 applicant tracking systems, and serves one normalised record format: over 2 million live postings, the employer's own apply link, a closure date when a role is gone, and the source of every field. A free key gives 1,000 records a month, and there is an MCP endpoint for agents at https://api.jobopportunitiesapi.org/mcp . Disclosure: maintained by the author of this pull request.
 
 ## Runnable examples
 
