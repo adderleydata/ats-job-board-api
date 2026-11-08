@@ -1,6 +1,6 @@
 # ATS job board APIs: endpoints, fields and limits, measured
 
-Eleven applicant tracking systems publish a company's open roles where anyone can read them: Ashby, BambooHR, Breezy HR, Greenhouse, JazzHR, Lever, Personio, Recruitee, Rippling, Workable and Workday. For each one this file gives the public endpoint with a curl that works, what a posting holds, how paging works, the limits we measured against the live endpoint, and where it stops. Every reading was taken between 22 September and 27 October 2026 on public, logged-out endpoints. Ten of the sections link to the full page on [adderleydata.com](https://adderleydata.com/guides/), which has the tables and the runs behind the numbers, and five systems have a [runnable example](#runnable-examples) in `examples/`.
+Eleven applicant tracking systems publish a company's open roles where anyone can read them: Ashby, BambooHR, Breezy HR, Greenhouse, JazzHR, Lever, Personio, Recruitee, Rippling, Workable and Workday. For each one this file gives the public endpoint with a curl that works, what a posting holds, how paging works, the limits we measured against the live endpoint, and where it stops. Every reading was taken between 22 September and 27 October 2026 on public, logged-out endpoints. Ten of the sections link to the full page on [adderleydata.com](https://adderleydata.com/guides/), which has the tables and the runs behind the numbers, five systems have a [runnable example](#runnable-examples) in `examples/`, and one more script [searches every board at once](#search-every-board-at-once).
 
 ## Quick reference
 
@@ -191,6 +191,21 @@ Five of the systems have a script in [`examples/`](examples/) that reads one boa
 | [`personio.mjs`](examples/personio.mjs) | `node examples/personio.mjs personio --text` | 1 | Personio's own job page: 1 position with 4 text sections, 1 request |
 | [`recruitee.mjs`](examples/recruitee.mjs) | `node examples/recruitee.mjs jobs` | 1 | Tellent's careers site: 12 offers, each with a pay range, 1 request |
 | [`rippling.mjs`](examples/rippling.mjs) | `node examples/rippling.mjs rippling --records 3` | 1 a page of 1,000, plus 1 a posting with `--records` | Rippling's own board: 379 postings, 3 with their records, 4 requests |
+
+## Search every board at once
+
+The sections above read one company's board at a time. To find postings by title and place without a list of companies, [`search-every-board.mjs`](examples/search-every-board.mjs) runs Adderley Data's [Career Site Jobs Scraper](https://apify.com/adderleydata/career-site-jobs-scraper) in search mode with one request to Apify's API. The search reads Adderley Data's index of the public boards of eight of these systems: Greenhouse, Lever, Ashby, Workday, Recruitee, Personio, Pinpoint and JazzHR. The index is refreshed by its own crawl and holds each posting's list facts, not its text, and no names, emails or phone numbers.
+
+```
+APIFY_TOKEN=... node examples/search-every-board.mjs "data engineer" Germany --max 20
+```
+
+- **What it needs:** Node 22 or later and nothing to install, plus an Apify account. The script reads your API token from `APIFY_TOKEN` (Apify Console, Settings, API & Integrations) and sends it in a header, never in the address.
+- **What it costs:** the run is charged to your Apify account at the Actor's price, which on 9 November 2026 was US$2.00 per 1,000 postings saved on Apify's Free and Starter plans and US$0.00005 a run, so the command above costs about US$0.04. `--max` is the cap.
+- **What it sends:** one `POST` to `https://api.apify.com/v2/acts/adderleydata~career-site-jobs-scraper/run-sync-get-dataset-items` with the search as JSON, and the matching rows come back in the same response. The input is the Actor's own: `keywords` and `locations` (several of each, separated by commas), `postedWithinDays` (`--days 7`), `sources` (`--sources greenhouse,lever`) and `workArrangement` (`--remote`).
+- **What it prints:** one JSON object per posting, with its title, company, system, board, city, region, country, location as written, work arrangement, posted date, pay as written and link, and a summary line on stderr.
+- **Measured** on 9 November 2026 with the command's input, run through Apify: 142 postings matched, 20 saved, from 13 boards on 4 systems, in 23 seconds. Six of the 20 were Workday postings, whose own records were read for their dates, and every request was answered at the first attempt.
+- **Where it stops:** this call waits for the run, and Apify ends the wait after 300 seconds with HTTP 408 while the run carries on, so the script caps `--max` at 1,000. For bigger searches, or to save only new and changed postings each day in incremental mode, [start the run](https://docs.apify.com/api/v2/act-runs-post) without waiting and read its dataset when it finishes.
 
 ## Watching boards over time
 
